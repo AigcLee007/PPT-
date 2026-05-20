@@ -2,7 +2,8 @@ import axios from 'axios';
 
 // 开发环境：通过 Vite proxy 转发
 // 生产环境：通过 nginx proxy 转发
-const API_BASE_URL = '';
+// 桌面端（Tauri）可通过 VITE_API_BASE_URL 指向本地后端，例如 http://127.0.0.1:5461
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
 
 // 创建 axios 实例
 export const apiClient = axios.create({
@@ -69,6 +70,9 @@ export const getImageUrl = (path?: string, timestamp?: string | number): string 
   }
   // 使用相对路径（确保以 / 开头）
   let url = path.startsWith('/') ? path : '/' + path;
+  if (API_BASE_URL) {
+    url = `${API_BASE_URL}${url}`;
+  }
   
   // 添加时间戳参数避免浏览器缓存（仅在提供时间戳时添加）
   if (timestamp) {
@@ -82,4 +86,3 @@ export const getImageUrl = (path?: string, timestamp?: string | number): string 
 };
 
 export default apiClient;
-
