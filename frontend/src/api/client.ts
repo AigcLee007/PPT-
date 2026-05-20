@@ -3,8 +3,14 @@ import axios from 'axios';
 // 开发环境：通过 Vite proxy 转发
 // 生产环境：通过 nginx proxy 转发
 // 桌面端（Tauri）可通过 VITE_API_BASE_URL 指向本地后端，例如 http://127.0.0.1:5461
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
 const OWNER_ID_KEY = 'banana-owner-id';
+
+export const apiUrl = (path: string): string => {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return API_BASE_URL ? `${API_BASE_URL}${normalizedPath}` : normalizedPath;
+};
 
 const getOwnerId = () => {
   let ownerId = localStorage.getItem(OWNER_ID_KEY);
@@ -82,10 +88,7 @@ export const getImageUrl = (path?: string, timestamp?: string | number): string 
     return path;
   }
   // 使用相对路径（确保以 / 开头）
-  let url = path.startsWith('/') ? path : '/' + path;
-  if (API_BASE_URL) {
-    url = `${API_BASE_URL}${url}`;
-  }
+  let url = apiUrl(path);
   
   // 添加时间戳参数避免浏览器缓存（仅在提供时间戳时添加）
   if (timestamp) {

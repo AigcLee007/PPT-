@@ -57,6 +57,16 @@ def _get_desktop_frontend_dir():
     return None
 
 
+def _get_desktop_data_dir():
+    """Return a stable writable directory for the packaged desktop sidecar."""
+    data_dir = os.getenv('BANANA_APP_DATA_DIR', '').strip()
+    if data_dir:
+        path = Path(data_dir)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+    return None
+
+
 # Enable SQLite WAL mode for all connections
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_conn, connection_record):
@@ -87,15 +97,20 @@ def create_app():
     
     # Override with environment-specific paths (use absolute path)
     backend_dir = os.path.dirname(os.path.abspath(__file__))
-    instance_dir = os.path.join(backend_dir, 'instance')
+    desktop_data_dir = _get_desktop_data_dir()
+    if desktop_data_dir:
+        instance_dir = str(desktop_data_dir / 'instance')
+        upload_folder = str(desktop_data_dir / 'uploads')
+    else:
+        instance_dir = os.path.join(backend_dir, 'instance')
+        project_root = os.path.dirname(backend_dir)
+        upload_folder = os.path.join(project_root, 'uploads')
     os.makedirs(instance_dir, exist_ok=True)
     
     db_path = os.path.join(instance_dir, 'database.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     
     # Ensure upload folder exists
-    project_root = os.path.dirname(backend_dir)
-    upload_folder = os.path.join(project_root, 'uploads')
     os.makedirs(upload_folder, exist_ok=True)
     app.config['UPLOAD_FOLDER'] = upload_folder
     
@@ -109,10 +124,17 @@ def create_app():
     
     # Initialize logging (log to stdout so Docker can capture it)
     log_level = getattr(logging, app.config['LOG_LEVEL'], logging.INFO)
+    log_handlers = [logging.StreamHandler(sys.stdout)]
+    log_file = os.getenv('BANANA_LOG_FILE', '').strip()
+    if log_file:
+        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+        log_handlers.append(logging.FileHandler(log_file, encoding='utf-8'))
+
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)],
+        handlers=log_handlers,
+        force=True,
     )
     
     # 设置第三方库的日志级别，避免过多的DEBUG日志

@@ -38,20 +38,25 @@ export function AccessCodeGuard({ children }: { children: ReactNode }) {
 
   const checkAccess = async () => {
     setStatus('loading');
-    try {
-      const res = await checkAccessCode();
-      if (!res.data.enabled) { setStatus('pass'); return; }
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const v = await verifyAccessCode(saved);
-        if (v.data.valid) { setStatus('pass'); return; }
-        localStorage.removeItem(STORAGE_KEY);
+    const deadline = Date.now() + 120_000;
+    while (Date.now() < deadline) {
+      try {
+        const res = await checkAccessCode();
+        if (!res.data.enabled) { setStatus('pass'); return; }
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const v = await verifyAccessCode(saved);
+          if (v.data.valid) { setStatus('pass'); return; }
+          localStorage.removeItem(STORAGE_KEY);
+        }
+        setStatus('prompt');
+        return;
+      } catch {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      setStatus('prompt');
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-      setStatus('connectError');
     }
+    localStorage.removeItem(STORAGE_KEY);
+    setStatus('connectError');
   };
 
   useEffect(() => { checkAccess(); }, []);
