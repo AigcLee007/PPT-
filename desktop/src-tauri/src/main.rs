@@ -2,6 +2,7 @@
 
 use std::thread;
 use std::time::Duration;
+use std::collections::HashMap;
 use tauri::api::process::Command;
 
 fn wait_backend_ready() -> bool {
@@ -29,10 +30,14 @@ fn main() {
         .setup(|app| {
             let mut sidecar = Command::new_sidecar("banana-backend")
                 .expect("failed to create sidecar command");
-            sidecar = sidecar
-                .env("BACKEND_PORT", "5461")
-                .env("CORS_ORIGINS", "tauri://localhost,http://tauri.localhost")
-                .env("FLASK_ENV", "production");
+            let mut envs = HashMap::new();
+            envs.insert("BACKEND_PORT".to_string(), "5461".to_string());
+            envs.insert(
+                "CORS_ORIGINS".to_string(),
+                "tauri://localhost,http://tauri.localhost".to_string(),
+            );
+            envs.insert("FLASK_ENV".to_string(), "production".to_string());
+            sidecar = sidecar.envs(envs);
 
             let (_rx, _child) = sidecar.spawn().expect("failed to spawn backend sidecar");
 
