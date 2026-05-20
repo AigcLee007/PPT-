@@ -29,10 +29,16 @@ from utils import (
     success_response, error_response, not_found, bad_request,
     parse_page_ids_from_body, get_filtered_pages
 )
+from utils.ownership import get_request_owner_id
 
 logger = logging.getLogger(__name__)
 
 project_bp = Blueprint('projects', __name__, url_prefix='/api/projects')
+
+
+def _get_owned_project(project_id: str) -> Project | None:
+    owner_id = get_request_owner_id()
+    return Project.query.filter_by(id=project_id, owner_id=owner_id).first()
 
 
 def _get_project_reference_files_content(project_id: str) -> list:
@@ -46,6 +52,7 @@ def _get_project_reference_files_content(project_id: str) -> list:
         List of dicts with 'filename' and 'content' keys
     """
     reference_files = ReferenceFile.query.filter_by(
+        owner_id=get_request_owner_id(),
         project_id=project_id,
         parse_status='completed'
     ).all()
@@ -172,9 +179,11 @@ def list_projects():
         offset = max(0, offset)  # Non-negative
 
         # Get total count for pagination
-        total = Project.query.count()
+        owner_id = get_request_owner_id()
+        total = Project.query.filter_by(owner_id=owner_id).count()
 
         projects = Project.query\
+            .filter_by(owner_id=owner_id)\
             .options(joinedload(Project.pages))\
             .order_by(desc(Project.updated_at))\
             .limit(limit)\
@@ -232,6 +241,7 @@ def create_project():
 
         # Create project
         project = Project(
+            owner_id=get_request_owner_id(),
             creation_type=creation_type,
             idea_prompt=data.get('idea_prompt'),
             outline_text=data.get('outline_text'),
@@ -272,7 +282,7 @@ def get_project(project_id):
         # Use eager loading to load project and related pages
         project = Project.query\
             .options(joinedload(Project.pages))\
-            .filter(Project.id == project_id)\
+            .filter(Project.id == project_id, Project.owner_id == get_request_owner_id())\
             .first()
         
         if not project:
@@ -300,7 +310,7 @@ def update_project(project_id):
         # Use eager loading to load project and pages (for page order updates)
         project = Project.query\
             .options(joinedload(Project.pages))\
-            .filter(Project.id == project_id)\
+            .filter(Project.id == project_id, Project.owner_id == get_request_owner_id())\
             .first()
         
         if not project:
@@ -383,7 +393,7 @@ def delete_project(project_id):
     DELETE /api/projects/{project_id} - Delete project
     """
     try:
-        project = Project.query.get(project_id)
+        project = _get_owned_project(project_id)
         
         if not project:
             return not_found('Project')
@@ -421,7 +431,7 @@ def generate_outline(project_id):
     }
     """
     try:
-        project = Project.query.get(project_id)
+        project = _get_owned_project(project_id)
         
         if not project:
             return not_found('Project')
@@ -511,7 +521,7 @@ def generate_outline_stream(project_id):
       event: error   — error occurred {message}
     """
     # Validate project exists before entering the generator
-    project = Project.query.get(project_id)
+    project = _get_owned_project(project_id)
     if not project:
         return not_found('Project')
 
@@ -635,7 +645,7 @@ def generate_from_description(project_id):
     """
     
     try:
-        project = Project.query.get(project_id)
+        project = _get_owned_project(project_id)
         
         if not project:
             return not_found('Project')
@@ -745,7 +755,7 @@ def generate_descriptions(project_id):
     }
     """
     try:
-        project = Project.query.get(project_id)
+        project = _get_owned_project(project_id)
         
         if not project:
             return not_found('Project')
@@ -838,7 +848,7 @@ def generate_descriptions_stream(project_id):
       event: done        — {total, pages: [...]}
       event: error       — {message}
     """
-    project = Project.query.get(project_id)
+    project = _get_owned_project(project_id)
     if not project:
         return not_found('Project')
 
@@ -982,7 +992,7 @@ def generate_images(project_id):
     }
     """
     try:
-        project = Project.query.get(project_id)
+        project = _get_owned_project(project_id)
         
         if not project:
             return not_found('Project')
@@ -1118,7 +1128,7 @@ def refine_outline(project_id):
     }
     """
     try:
-        project = Project.query.get(project_id)
+        project = _get_owned_project(project_id)
         
         if not project:
             return not_found('Project')
@@ -1215,7 +1225,7 @@ def refine_descriptions(project_id):
     }
     """
     try:
-        project = Project.query.get(project_id)
+        project = _get_owned_project(project_id)
         
         if not project:
             return not_found('Project')

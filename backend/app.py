@@ -18,7 +18,7 @@ _project_root = Path(__file__).parent.parent
 _env_file = _project_root / '.env'
 load_dotenv(dotenv_path=_env_file, override=True)
 
-from flask import Flask
+from flask import Flask, g
 from flask_cors import CORS
 from models import db
 from config import Config
@@ -27,6 +27,7 @@ from controllers.reference_file_controller import reference_file_bp
 from controllers.settings_controller import settings_bp
 from controllers.openai_oauth_controller import openai_oauth_bp
 from controllers import project_bp, page_bp, template_bp, user_template_bp, user_style_template_bp, export_bp, file_bp, style_bp
+from utils.ownership import resolve_request_owner_id, OWNER_COOKIE_NAME
 
 
 # Enable SQLite WAL mode for all connections
@@ -135,6 +136,23 @@ def create_app():
         if hmac.compare_digest(code, expected):
             return
         return jsonify({'error': 'Access code required'}), 403
+
+    @app.before_request
+    def _bind_owner_id():
+        resolve_request_owner_id()
+
+    @app.after_request
+    def _set_owner_cookie(response):
+        new_owner_id = getattr(g, "_banana_owner_id_new", None)
+        if new_owner_id:
+            response.set_cookie(
+                OWNER_COOKIE_NAME,
+                new_owner_id,
+                max_age=60 * 60 * 24 * 365,
+                httponly=True,
+                samesite='Lax',
+            )
+        return response
 
     # Health check endpoint
     @app.route('/health')
