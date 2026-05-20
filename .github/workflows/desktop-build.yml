@@ -91,6 +91,13 @@ jobs:
           Set-Location desktop
           npm install
 
+      - name: Generate Tauri icons
+        shell: pwsh
+        run: |
+          Set-Location desktop
+          Remove-Item src-tauri/icons/icon.png,src-tauri/icons/icon.ico,src-tauri/icons/icon.icns -ErrorAction SilentlyContinue
+          npx tauri icon ../frontend/public/logo.png ./src-tauri/icons
+
       - name: Build desktop app (Tauri)
         uses: tauri-apps/tauri-action@v0
         env:
