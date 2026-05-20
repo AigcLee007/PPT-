@@ -80,14 +80,43 @@ jobs:
         shell: pwsh
         run: |
           $dataSep = if ($IsWindows) { ";" } else { ":" }
+          $frontendDist = (Resolve-Path frontend/dist).Path
+          $backendFonts = (Resolve-Path backend/fonts).Path
           pyinstaller --noconfirm --clean --onefile --name banana-backend `
-            --add-data "frontend/dist${dataSep}frontend/dist" `
-            --add-data "backend/fonts${dataSep}backend/fonts" `
+            --add-data "${frontendDist}${dataSep}frontend/dist" `
+            --add-data "${backendFonts}${dataSep}backend/fonts" `
             backend/app.py
           New-Item -ItemType Directory -Force -Path desktop/src-tauri/binaries | Out-Null
           $src = "dist/banana-backend${{ matrix.sidecar_ext }}"
           $dst = "desktop/src-tauri/binaries/banana-backend-${{ matrix.target }}${{ matrix.sidecar_ext }}"
           Copy-Item $src $dst -Force
+
+      - name: Verify backend serves bundled frontend
+        shell: pwsh
+        run: |
+          $env:BACKEND_PORT = "5461"
+          $bin = "dist/banana-backend${{ matrix.sidecar_ext }}"
+          if (!$IsWindows) { chmod +x $bin }
+          $proc = Start-Process -FilePath $bin -PassThru
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              try {
+                $health = Invoke-WebRequest -Uri "http://127.0.0.1:5461/health" -UseBasicParsing -TimeoutSec 2
+                if ($health.StatusCode -eq 200) { $ready = $true; break }
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+            if (!$ready) { throw "Backend did not become healthy" }
+            $home = Invoke-WebRequest -Uri "http://127.0.0.1:5461/" -UseBasicParsing -TimeoutSec 5
+            if ($home.Content -notmatch '<div id="root"') {
+              Write-Host $home.Content
+              throw "Bundled backend root did not serve frontend HTML"
+            }
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Install desktop deps
         shell: pwsh

@@ -36,6 +36,12 @@ fn main() {
                 .expect("failed to create sidecar command");
             let mut envs = HashMap::new();
             envs.insert("BACKEND_PORT".to_string(), "5461".to_string());
+            if let Some(resource_dir) = app.path_resolver().resource_dir() {
+                envs.insert(
+                    "BANANA_FRONTEND_DIST".to_string(),
+                    resource_dir.join("frontend").join("dist").to_string_lossy().to_string(),
+                );
+            }
             envs.insert(
                 "CORS_ORIGINS".to_string(),
                 [

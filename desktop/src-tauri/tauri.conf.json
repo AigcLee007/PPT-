@@ -34,6 +34,9 @@
       ],
       "externalBin": [
         "binaries/banana-backend"
+      ],
+      "resources": [
+        "../../frontend/dist"
       ]
     },
     "windows": []

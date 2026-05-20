@@ -32,15 +32,28 @@ from utils.ownership import resolve_request_owner_id, OWNER_COOKIE_NAME
 
 def _get_desktop_frontend_dir():
     """Return bundled frontend dist directory when running as a desktop sidecar."""
+    explicit_dir = os.getenv('BANANA_FRONTEND_DIST', '').strip()
+    if explicit_dir:
+        explicit_path = Path(explicit_dir)
+        if (explicit_path / 'index.html').exists():
+            return explicit_path
+
     bundled_root = getattr(sys, '_MEIPASS', None)
     candidates = []
     if bundled_root:
         candidates.append(Path(bundled_root) / 'frontend' / 'dist')
+        candidates.append(Path(bundled_root) / 'dist')
     candidates.append(Path(__file__).resolve().parent.parent / 'frontend' / 'dist')
 
     for candidate in candidates:
         if (candidate / 'index.html').exists():
             return candidate
+
+    if bundled_root:
+        for index_file in Path(bundled_root).rglob('index.html'):
+            candidate = index_file.parent
+            if (candidate / 'assets').is_dir():
+                return candidate
     return None
 
 
