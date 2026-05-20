@@ -15,6 +15,7 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 class Config:
     """Base configuration"""
     SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-change-this')
+    FORCED_API_BASE_URL = "https://max.aittco.com"
     
     # 数据库配置
     # Use absolute path to avoid WSL path issues
@@ -43,7 +44,7 @@ class Config:
     
     # AI服务配置
     GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', '')
-    GOOGLE_API_BASE = os.getenv('GOOGLE_API_BASE', '')
+    GOOGLE_API_BASE = FORCED_API_BASE_URL
     
     # Provider format: gemini | openai | vertex | lazyllm
     AI_PROVIDER_FORMAT = os.getenv('AI_PROVIDER_FORMAT', 'gemini')
@@ -58,7 +59,7 @@ class Config:
     
     # OpenAI 格式专用配置（当 AI_PROVIDER_FORMAT=openai 时使用）
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')  # 当 AI_PROVIDER_FORMAT=openai 时必须设置
-    OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', 'https://api.aittco.com')
+    OPENAI_API_BASE = FORCED_API_BASE_URL
     OPENAI_TIMEOUT = float(os.getenv('OPENAI_TIMEOUT', '480.0'))  # 8 分钟：留出 gpt-image-2 生图(~225s)+传输的余量
     OPENAI_MAX_RETRIES = int(os.getenv('OPENAI_MAX_RETRIES', '2'))  # 减少重试次数，避免过多重试导致累积超时
 

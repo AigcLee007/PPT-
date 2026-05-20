@@ -57,8 +57,8 @@ def temporary_settings_override(settings_override: dict):
         if settings_override.get("api_base_url"):
             original_values["GOOGLE_API_BASE"] = current_app.config.get("GOOGLE_API_BASE")
             original_values["OPENAI_API_BASE"] = current_app.config.get("OPENAI_API_BASE")
-            current_app.config["GOOGLE_API_BASE"] = settings_override["api_base_url"]
-            current_app.config["OPENAI_API_BASE"] = settings_override["api_base_url"]
+            current_app.config["GOOGLE_API_BASE"] = Config.FORCED_API_BASE_URL
+            current_app.config["OPENAI_API_BASE"] = Config.FORCED_API_BASE_URL
 
         if settings_override.get("ai_provider_format"):
             original_values["AI_PROVIDER_FORMAT"] = current_app.config.get("AI_PROVIDER_FORMAT")
@@ -102,7 +102,7 @@ def temporary_settings_override(settings_override: dict):
             if settings_override.get(base_field):
                 config_key = f'{prefix}_API_BASE'
                 original_values[config_key] = current_app.config.get(config_key)
-                current_app.config[config_key] = settings_override[base_field]
+                current_app.config[config_key] = Config.FORCED_API_BASE_URL
 
         if settings_override.get("mineru_api_base"):
             original_values["MINERU_API_BASE"] = current_app.config.get("MINERU_API_BASE")
@@ -204,7 +204,7 @@ def update_settings():
                 settings.api_base_url = None
             else:
                 value = str(raw_base_url).strip()
-                settings.api_base_url = value if value != "" else None
+                settings.api_base_url = Config.FORCED_API_BASE_URL if value != "" else None
 
         if "api_key" in data:
             settings.api_key = data["api_key"]
@@ -333,7 +333,8 @@ def update_settings():
                 setattr(settings, key_field, data[key_field] or None)
 
             if base_field in data:
-                setattr(settings, base_field, (data[base_field] or "").strip() or None)
+                base_value = (data[base_field] or "").strip()
+                setattr(settings, base_field, Config.FORCED_API_BASE_URL if base_value else None)
 
         if "lazyllm_api_keys" in data:
             keys_data = data["lazyllm_api_keys"]
@@ -558,23 +559,14 @@ def _sync_settings_to_config(settings: Settings):
         logger.info(f"AI provider format changed: {old_format} -> {new_format}")
     current_app.config["AI_PROVIDER_FORMAT"] = new_format
     
-    # Sync API configuration (sync to both GOOGLE_* and OPENAI_* to ensure DB settings override env vars)
-    if settings.api_base_url is not None:
-        old_base = current_app.config.get("GOOGLE_API_BASE")
-        if old_base != settings.api_base_url:
-            ai_config_changed = True
-            logger.info(f"API base URL changed: {old_base} -> {settings.api_base_url}")
-        current_app.config["GOOGLE_API_BASE"] = settings.api_base_url
-        current_app.config["OPENAI_API_BASE"] = settings.api_base_url
-    else:
-        # Restore .env defaults (pop would permanently lose .env values)
-        env_base_google = Config.GOOGLE_API_BASE
-        env_base_openai = Config.OPENAI_API_BASE
-        if current_app.config.get("GOOGLE_API_BASE") != env_base_google or current_app.config.get("OPENAI_API_BASE") != env_base_openai:
-            ai_config_changed = True
-            logger.info("API base URL cleared, falling back to .env defaults")
-        current_app.config["GOOGLE_API_BASE"] = env_base_google
-        current_app.config["OPENAI_API_BASE"] = env_base_openai
+    # Enforce unified API base URL for both Gemini/OpenAI paths
+    old_base_google = current_app.config.get("GOOGLE_API_BASE")
+    old_base_openai = current_app.config.get("OPENAI_API_BASE")
+    if old_base_google != Config.FORCED_API_BASE_URL or old_base_openai != Config.FORCED_API_BASE_URL:
+        ai_config_changed = True
+        logger.info(f"API base URL enforced: {Config.FORCED_API_BASE_URL}")
+    current_app.config["GOOGLE_API_BASE"] = Config.FORCED_API_BASE_URL
+    current_app.config["OPENAI_API_BASE"] = Config.FORCED_API_BASE_URL
 
     if settings.api_key is not None:
         old_key = current_app.config.get("GOOGLE_API_KEY")
@@ -667,9 +659,14 @@ def _sync_settings_to_config(settings: Settings):
             config_key = f'{prefix}{suffix}'
             val = getattr(settings, f'{model_type}{setting_suffix}', None)
             if val:
-                if current_app.config.get(config_key) != val:
-                    ai_config_changed = True
-                current_app.config[config_key] = val
+                if suffix == "_API_BASE":
+                    if current_app.config.get(config_key) != Config.FORCED_API_BASE_URL:
+                        ai_config_changed = True
+                    current_app.config[config_key] = Config.FORCED_API_BASE_URL
+                else:
+                    if current_app.config.get(config_key) != val:
+                        ai_config_changed = True
+                    current_app.config[config_key] = val
             else:
                 if config_key in current_app.config:
                     ai_config_changed = True

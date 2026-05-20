@@ -208,12 +208,12 @@ def _load_settings_to_config(app):
         # But we only log if there's an actual value
         if settings.api_base_url is not None:
             # 将数据库中的统一 API Base 同步到 Google/OpenAI 两个配置，确保覆盖环境变量
-            app.config['GOOGLE_API_BASE'] = settings.api_base_url
-            app.config['OPENAI_API_BASE'] = settings.api_base_url
+            app.config['GOOGLE_API_BASE'] = Config.FORCED_API_BASE_URL
+            app.config['OPENAI_API_BASE'] = Config.FORCED_API_BASE_URL
             if settings.api_base_url:
-                logging.info(f"Loaded API_BASE from settings: {settings.api_base_url}")
+                logging.info(f"API_BASE is enforced: {Config.FORCED_API_BASE_URL}")
             else:
-                logging.info("API_BASE is empty in settings, using env var or default")
+                logging.info(f"API_BASE is enforced: {Config.FORCED_API_BASE_URL}")
 
         if settings.api_key is not None:
             # 同步到两个提供商的 key，数据库优先于环境变量
