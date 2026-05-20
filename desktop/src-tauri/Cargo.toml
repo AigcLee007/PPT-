@@ -1,6 +1,6 @@
 [package]
 name = "banana-slides-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "Banana Slides Desktop"
 authors = ["banana-slides"]
 license = ""
