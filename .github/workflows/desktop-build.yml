@@ -96,7 +96,11 @@ jobs:
         run: |
           Set-Location desktop
           Remove-Item src-tauri/icons/icon.png,src-tauri/icons/icon.ico,src-tauri/icons/icon.icns -ErrorAction SilentlyContinue
-          npx tauri icon ../frontend/public/logo.png
+          npx tauri icon src-tauri/app-icon.png
+          Get-ChildItem src-tauri/icons | Sort-Object Name | Format-Table Name,Length
+          if (!(Test-Path src-tauri/icons/icon.ico)) { throw "Missing generated icon.ico" }
+          if (!(Test-Path src-tauri/icons/icon.icns)) { throw "Missing generated icon.icns" }
+          if (!(Test-Path src-tauri/icons/icon.png)) { throw "Missing generated icon.png" }
 
       - name: Build desktop app (Tauri)
         uses: tauri-apps/tauri-action@v0
