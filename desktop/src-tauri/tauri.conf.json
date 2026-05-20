@@ -28,7 +28,6 @@
       "targets": "all",
       "identifier": "com.banana.slides",
       "icon": [
-        "icons/icon.png",
         "icons/icon.ico"
       ],
       "externalBin": [
