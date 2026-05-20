@@ -79,7 +79,11 @@ jobs:
       - name: Build backend sidecar binary
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --name banana-backend backend/app.py
+          $dataSep = if ($IsWindows) { ";" } else { ":" }
+          pyinstaller --noconfirm --clean --onefile --name banana-backend `
+            --add-data "frontend/dist${dataSep}frontend/dist" `
+            --add-data "backend/fonts${dataSep}backend/fonts" `
+            backend/app.py
           New-Item -ItemType Directory -Force -Path desktop/src-tauri/binaries | Out-Null
           $src = "dist/banana-backend${{ matrix.sidecar_ext }}"
           $dst = "desktop/src-tauri/binaries/banana-backend-${{ matrix.target }}${{ matrix.sidecar_ext }}"

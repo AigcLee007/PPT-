@@ -58,7 +58,11 @@ fn main() {
             tauri::WindowBuilder::new(
                 app,
                 "main",
-                tauri::WindowUrl::App("index.html".into()),
+                tauri::WindowUrl::External(
+                    "http://127.0.0.1:5461"
+                        .parse()
+                        .expect("invalid desktop backend URL"),
+                ),
             )
             .title("Banana Slides")
             .inner_size(1366.0, 860.0)

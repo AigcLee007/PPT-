@@ -18,7 +18,7 @@ _project_root = Path(__file__).parent.parent
 _env_file = _project_root / '.env'
 load_dotenv(dotenv_path=_env_file, override=True)
 
-from flask import Flask, g
+from flask import Flask, g, send_from_directory
 from flask_cors import CORS
 from models import db
 from config import Config
@@ -28,6 +28,20 @@ from controllers.settings_controller import settings_bp
 from controllers.openai_oauth_controller import openai_oauth_bp
 from controllers import project_bp, page_bp, template_bp, user_template_bp, user_style_template_bp, export_bp, file_bp, style_bp
 from utils.ownership import resolve_request_owner_id, OWNER_COOKIE_NAME
+
+
+def _get_desktop_frontend_dir():
+    """Return bundled frontend dist directory when running as a desktop sidecar."""
+    bundled_root = getattr(sys, '_MEIPASS', None)
+    candidates = []
+    if bundled_root:
+        candidates.append(Path(bundled_root) / 'frontend' / 'dist')
+    candidates.append(Path(__file__).resolve().parent.parent / 'frontend' / 'dist')
+
+    for candidate in candidates:
+        if (candidate / 'index.html').exists():
+            return candidate
+    return None
 
 
 # Enable SQLite WAL mode for all connections
@@ -196,6 +210,10 @@ def create_app():
     # Root endpoint
     @app.route('/')
     def index():
+        frontend_dir = _get_desktop_frontend_dir()
+        if frontend_dir:
+            return send_from_directory(frontend_dir, 'index.html')
+
         return {
             'name': 'Banana Slides API',
             'version': '1.0.0',
@@ -206,6 +224,20 @@ def create_app():
                 'projects': '/api/projects'
             }
         }
+
+    @app.route('/<path:desktop_path>')
+    def desktop_spa(desktop_path):
+        frontend_dir = _get_desktop_frontend_dir()
+        if not frontend_dir:
+            return {'error': 'Not found'}, 404
+
+        if desktop_path.startswith(('api/', 'files/', 'health')):
+            return {'error': 'Not found'}, 404
+
+        requested = frontend_dir / desktop_path
+        if requested.is_file():
+            return send_from_directory(frontend_dir, desktop_path)
+        return send_from_directory(frontend_dir, 'index.html')
     
     return app
 
