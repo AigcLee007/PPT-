@@ -413,6 +413,7 @@ if __name__ == '__main__':
     else:
         port = _compute_worktree_port(5000)
     debug = os.getenv('FLASK_ENV', 'development') == 'development'
+    use_reloader = debug and os.getenv("IN_DOCKER", "0") != "1" and not getattr(sys, 'frozen', False)
     
     logging.info(
         "\n"
@@ -429,4 +430,4 @@ if __name__ == '__main__':
     )
     
     # Using absolute paths for database, so WSL path issues should not occur
-    app.run(host='0.0.0.0', port=port, debug=debug, use_reloader=debug)
+    app.run(host='0.0.0.0', port=port, debug=debug, use_reloader=use_reloader)
