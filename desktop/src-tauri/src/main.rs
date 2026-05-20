@@ -3,7 +3,11 @@
 use std::thread;
 use std::time::Duration;
 use std::collections::HashMap;
-use tauri::api::process::Command;
+use std::sync::Mutex;
+use tauri::api::process::{Command, CommandChild};
+use tauri::Manager;
+
+struct BackendProcess(Mutex<Option<CommandChild>>);
 
 fn wait_backend_ready() -> bool {
     let client = match reqwest::blocking::Client::builder()
@@ -14,7 +18,7 @@ fn wait_backend_ready() -> bool {
         Err(_) => return false,
     };
 
-    for _ in 0..40 {
+    for _ in 0..120 {
         if let Ok(resp) = client.get("http://127.0.0.1:5461/health").send() {
             if resp.status().is_success() {
                 return true;
@@ -34,12 +38,20 @@ fn main() {
             envs.insert("BACKEND_PORT".to_string(), "5461".to_string());
             envs.insert(
                 "CORS_ORIGINS".to_string(),
-                "tauri://localhost,http://tauri.localhost".to_string(),
+                [
+                    "tauri://localhost",
+                    "http://tauri.localhost",
+                    "https://tauri.localhost",
+                    "http://localhost:1420",
+                    "http://127.0.0.1:5461",
+                ]
+                .join(","),
             );
             envs.insert("FLASK_ENV".to_string(), "production".to_string());
             sidecar = sidecar.envs(envs);
 
-            let (_rx, _child) = sidecar.spawn().expect("failed to spawn backend sidecar");
+            let (_rx, child) = sidecar.spawn().expect("failed to spawn backend sidecar");
+            app.manage(BackendProcess(Mutex::new(Some(child))));
 
             let _ = wait_backend_ready();
 

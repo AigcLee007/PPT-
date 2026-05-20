@@ -4,6 +4,16 @@ import axios from 'axios';
 // 生产环境：通过 nginx proxy 转发
 // 桌面端（Tauri）可通过 VITE_API_BASE_URL 指向本地后端，例如 http://127.0.0.1:5461
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
+const OWNER_ID_KEY = 'banana-owner-id';
+
+const getOwnerId = () => {
+  let ownerId = localStorage.getItem(OWNER_ID_KEY);
+  if (!ownerId) {
+    ownerId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    localStorage.setItem(OWNER_ID_KEY, ownerId);
+  }
+  return ownerId;
+};
 
 // 创建 axios 实例
 export const apiClient = axios.create({
@@ -18,6 +28,9 @@ apiClient.interceptors.request.use(
     const accessCode = localStorage.getItem('banana-access-code');
     if (accessCode && config.headers) {
       config.headers['X-Access-Code'] = accessCode;
+    }
+    if (config.headers) {
+      config.headers['X-Owner-Id'] = getOwnerId();
     }
 
     // 如果请求体是 FormData，删除 Content-Type 让浏览器自动设置
